@@ -435,6 +435,28 @@ def test_jev_instructions_reject_blank_values() -> None:
 
 
 @pytest.mark.parametrize(
+    ("configured_key", "expected_key"),
+    [
+        ("os.environ/JEV_TEST_API_KEY", "resolved-test-key"),
+        ("literal-test-key", "literal-test-key"),
+        (None, "fallback-test-key"),
+    ],
+)
+def test_jev_client_resolves_environment_key_without_changing_literal_or_fallback(
+    monkeypatch: pytest.MonkeyPatch, configured_key: str | None, expected_key: str
+) -> None:
+    monkeypatch.setenv("JEV_TEST_API_KEY", "resolved-test-key")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "fallback-test-key")
+    monkeypatch.setenv("TYPESAFE_API_BASE", "https://fallback.typesafe.test")
+    monkeypatch.setenv("literal-test-key", "shadowed-test-key")
+
+    client: Final = ComplexityRouter._build_jev_client(JevClassifierConfig(api_key=configured_key))
+
+    assert isinstance(client, HttpJevClassifierClient)
+    assert client._api_key == expected_key
+
+
+@pytest.mark.parametrize(
     ("missing_key", "rejection"),
     [
         ({}, r"api_base requires jev_classifier_config\.api_key"),
